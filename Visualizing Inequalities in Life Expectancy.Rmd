@@ -1,0 +1,184 @@
+---
+title: "Visualizing Inequalities in Life Expectancy"
+author: "Lucas Mendicino"
+date: "3/4/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+options(repr.plot.width = 6, repr.plot.height = 6)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+
+Life expectancy at birth is a measure of the average a living being is expected to live. It takes into account several demographic factors like gender, country, or year of birth.
+
+Life expectancy at birth can vary along time or between countries because of many causes: the evolution of medicine, the degree of development of countries, or the effect of armed conflicts. Life expectancy varies between gender, as well. The data shows that women live longer that men. Why? Several potential factors, including biological reasons and the theory that women tend to be more health conscious.
+
+Let's create some plots to explore the inequalities about life expectancy at birth around the world. We will use a dataset from the United Nations Statistics Division.
+
+```{r}
+life_expectancy <- read_csv("Life_Expectancy_UN.csv")
+life_expectancy <- life_expectancy %>%
+                  rename(Country.or.Area = `Country or Area`)
+head(life_expectancy)
+```
+
+Let's manipulate the data to make our exploration easier. We will build the dataset for our first plot in which we will represent the average life expectancy of men and women across countries for the last period recorded in our data (2000-2005).
+
+
+```{r}
+subdata <- life_expectancy  %>% 
+  filter(Year=="2000-2005") %>% 
+  select(Country.or.Area, Subgroup, Value) %>% 
+  spread(Subgroup, Value)
+
+# Taking a look at the first few rows
+head(subdata)
+```
+
+Let's create a scatter plot using ggplot2 to represent life expectancy of males (on the x-axis) against females (on the y-axis).
+
+
+```{r}
+ggplot(subdata, aes(Male, Female)) + geom_point()
+```
+
+Let's set the same limits for both axes as well as place a diagonal line for reference. After doing this, the difference between men and women across countries will be easier to interpret.
+
+
+```{r}
+ggplot(subdata, aes(Male, Female)) + geom_point() +
+        geom_abline(intercept = 0, slope = 1, linetype = 2) +
+        scale_x_continuous(limits = c(35, 85))
+```
+
+We see how most of the points are arranged above the diagonal and how there is a significant dispersion among them. This shows the females tend to have longer life expectancies than males.
+
+Let's add titles, axis labels, and a caption, and change the appearance.
+
+```{r}
+ggplot(subdata, aes(x=Male, y=Female))+
+  geom_point(colour="white", fill="chartreuse3", shape=21, alpha=.55, size=5)+
+  geom_abline(intercept = 0, slope = 1, linetype=2)+
+  scale_x_continuous(limits=c(35,85))+
+  scale_y_continuous(limits=c(35,85))+
+  labs(title="Life Expectancy at Birth by Country",
+       subtitle="Years. Period: 2000-2005. Average.",
+       caption="Source: United Nations Statistics Division",
+       x="Males",
+       y="Females")
+```
+
+Let's further discriminate this visualization by drawing attention to countries where the gap in life expectanct between men and women is significantly high.
+
+```{r}
+# Subseting data to obtain countries of interest
+top_male <- subdata %>% arrange(Male-Female) %>% head(3)
+top_female <- subdata %>% arrange(Female-Male) %>% head(3)
+
+# Adding text to the previous plot to label countries of interest
+ggplot(subdata, aes(x=Male, y=Female, label = Country.or.Area))+
+  geom_point(colour="white", fill="chartreuse3", shape=21, alpha=.55, size=5)+
+  geom_abline(intercept = 0, slope = 1, linetype=2)+
+  scale_x_continuous(limits=c(35,85))+
+  scale_y_continuous(limits=c(35,85))+
+  labs(title="Life Expectancy at Birth by Country",
+       subtitle="Years. Period: 2000-2005. Average.",
+       caption="Source: United Nations Statistics Division",
+       x="Males",
+       y="Females")+
+       geom_text(data=top_male, size=3) +
+       geom_text(data=top_female, size=3) +
+       theme_bw()
+```
+
+
+Since the data contains historical information, let's see now how life expectancy has evolved in recent years. The second plot will represent the difference between men and women across countries between two periods: 2000-2005 and 1985-1990.
+
+Let's start building a dataset called subdata2 for our second plot.
+
+
+```{r}
+# Subsetting, mutating and reshaping the life expectancy data
+subdata2 <- life_expectancy %>% 
+  filter(Year %in% c("1985-1990", "2000-2005")) %>% 
+  mutate(Sub_Year=paste(Subgroup, Year, sep="_")) %>% 
+  mutate(Sub_Year=gsub("-", "_", Sub_Year)) %>% 
+  select(-Subgroup, -Year) %>% 
+  spread(Sub_Year, Value) %>% 
+  mutate(diff_Female = Female_2000_2005 - Female_1985_1990, 
+         diff_Male   = Male_2000_2005 - Male_1985_1990)
+
+# Taking a look at the first few rows
+head(subdata2)
+```
+
+Now let's create our second plot in which we will represent average life expectancy differences between "1985-1990" and "2000-2005" for men and women.
+
+```{r}
+ggplot(subdata2, aes(x=diff_Male, y=diff_Female, label=Country.or.Area))+
+  geom_point(colour="white", fill="chartreuse3", shape=21, alpha=.55, size=5)+
+  geom_abline(intercept = 0, slope = 1, linetype=2)+
+  scale_x_continuous(limits=c(-25,25))+
+  scale_y_continuous(limits=c(-25,25))+
+  labs(title="Life Expectancy at Birth by Country in Years",
+       subtitle="Difference between 1985-1990 and 2000-2005. Average.",
+       caption="Source: United Nations Statistics Division",
+       x="Males",
+       y="Females")+
+theme_bw()
+```
+
+Let's add in vertical and hortizontal reference lines to identify which countries increased or decreased their life expectancy in the period analyzed.
+
+
+```{r}
+ggplot(subdata2, aes(x=diff_Male, y=diff_Female, label=Country.or.Area))+
+  geom_point(colour="white", fill="chartreuse3", shape=21, alpha=.55, size=5)+
+  geom_abline(intercept = 0, slope = 1, linetype=2)+
+  scale_x_continuous(limits=c(-25,25))+
+  scale_y_continuous(limits=c(-25,25))+
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_vline(xintercept = 0, linetype = 2) +
+  labs(title="Life Expectancy at Birth by Country",
+       subtitle="Years. Difference between 1985-1990 and 2000-2005. Average.",
+       caption="Source: United Nations Statistics Division",
+       x="Males",
+       y="Females")+
+theme_bw()
+```
+
+
+Let's label some points where the aggregated life expectancy for men and women increased most and decreased most in the period.
+
+```{r}
+top <- subdata2 %>% arrange(diff_Male+diff_Female) %>% head(3)
+bottom <- subdata2 %>% arrange(-(diff_Male+diff_Female)) %>% head(3)
+
+ggplot(subdata2, aes(x=diff_Male, y=diff_Female, label=Country.or.Area), guide=FALSE)+
+  geom_point(colour="white", fill="chartreuse3", shape=21, alpha=.55, size=5)+
+  geom_abline(intercept = 0, slope = 1, linetype=2)+
+  scale_x_continuous(limits=c(-25,25))+
+  scale_y_continuous(limits=c(-25,25))+
+  geom_hline(yintercept=0, linetype=2)+
+  geom_vline(xintercept=0, linetype=2)+
+  labs(title="Life Expectancy at Birth by Country",
+       subtitle="Years. Difference between 1985-1990 and 2000-2005. Average.",
+       caption="Source: United Nations Statistics Division",
+       x="Males",
+       y="Females")+
+  geom_text(data=top, size=3)+
+  geom_text(data=bottom, size=3)+
+  theme_bw()
+```
+
+
